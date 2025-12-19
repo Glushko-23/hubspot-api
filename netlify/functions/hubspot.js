@@ -1,0 +1,90 @@
+exports.handler = async (event) => {
+    if (event.httpMethod !== 'GET' || event.path !== '/api/hubspot') {
+        return { statusCode: 404, body: 'Not Found' };
+    }
+
+    const token = process.env.HUBSPOT_ACCESS_TOKEN;
+    if (!token) {
+        return { statusCode: 500, body: JSON.stringify({ error: 'No token set' }) };
+    }
+
+    const query = event.queryStringParameters || {};
+    const limit = Number(query.limit) || 10;
+    const offset = Number(query.offset) || 0;
+
+    const url = new URL('https://api.hubapi.com/cms/v3/blogs/posts');
+    url.searchParams.set('limit', limit.toString());
+    url.searchParams.set('offset', offset.toString());
+
+    Object.entries(query).forEach(([key, value]) => {
+        if (!['limit', 'offset'].includes(key) && typeof value === 'string') {
+            url.searchParams.set(key, value);
+        }
+    });
+
+    try {
+        const hubRes = await fetch(url.toString(), {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/json',
+            },
+        });
+
+        if (!hubRes.ok) {
+            const text = await hubRes.text();
+            throw new Error(`HubSpot API error ${hubRes.status}: ${text}`);
+        }
+
+        const data = await hubRes.json();
+
+        const allTagIds = [...new Set(data.results.flatMap(post => post.tagIds || []))];
+
+        let tagMap = {};
+        if (allTagIds.length > 0) {
+            const tagRes = await fetch('https://api.hubapi.com/cms/v3/blogs/tags?limit=500', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json',
+                },
+            });
+
+            if (!tagRes.ok) {
+                const text = await tagRes.text();
+                throw new Error(`HubSpot Tags API error ${tagRes.status}: ${text}`);
+            }
+
+            const tagData = await tagRes.json();
+            tagMap = tagData.results.reduce((acc, tag) => {
+                acc[tag.id] = tag.name;
+                return acc;
+            }, {});
+        }
+
+        const enrichedResults = data.results.map(post => ({
+            ...post,
+            tagNames: (post.tagIds || []).map(id => tagMap[id]).filter(Boolean),
+        }));
+
+        return {
+            statusCode: 200,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Cache-Control': 's-maxage=60, stale-while-revalidate=120',
+            },
+            body: JSON.stringify({
+                ...data,
+                results: enrichedResults,
+            }),
+        };
+    } catch (err) {
+        return {
+            statusCode: 500,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                error: 'HubSpot proxy error',
+                message: err instanceof Error ? err.message : String(err),
+            }),
+        };
+    }
+};

@@ -1,0 +1,10 @@
+{
+  "name": "hubspot-blog-api",
+  "version": "1.0.0",
+  "description": "HubSpot blog proxy with tag enrichment",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT"
+}
