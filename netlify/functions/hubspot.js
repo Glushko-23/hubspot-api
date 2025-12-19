@@ -1,6 +1,6 @@
 exports.handler = async (event) => {
-    if (event.httpMethod !== 'GET' || event.path !== '/api/hubspot') {
-        return { statusCode: 404, body: 'Not Found' };
+    if (event.httpMethod !== 'GET') {
+        return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
     const token = process.env.HUBSPOT_ACCESS_TOKEN;
