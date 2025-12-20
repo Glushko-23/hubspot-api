@@ -9,15 +9,21 @@ exports.handler = async (event) => {
     }
 
     const query = event.queryStringParameters || {};
+    const blogId = query.blog_id;
     const limit = Number(query.limit) || 10;
     const offset = Number(query.offset) || 0;
 
     const url = new URL('https://api.hubapi.com/cms/v3/blogs/posts');
+
+    if (blogId && blogId !== 'default' && !isNaN(Number(blogId))) {
+        url.searchParams.set('blog_id', blogId);
+    }
+
     url.searchParams.set('limit', limit.toString());
     url.searchParams.set('offset', offset.toString());
 
     Object.entries(query).forEach(([key, value]) => {
-        if (!['limit', 'offset'].includes(key) && typeof value === 'string') {
+        if (!['limit', 'offset', 'blog_id'].includes(key) && typeof value === 'string') {
             url.searchParams.set(key, value);
         }
     });
@@ -78,6 +84,8 @@ exports.handler = async (event) => {
             }),
         };
     } catch (err) {
+        console.error(err);
+
         return {
             statusCode: 500,
             headers: { 'Content-Type': 'application/json' },
