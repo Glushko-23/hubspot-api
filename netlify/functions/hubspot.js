@@ -41,11 +41,11 @@ exports.handler = async (event) => {
     url.searchParams.set('limit', limit.toString());
     url.searchParams.set('offset', offset.toString());
 
-    Object.entries(query).forEach(([key, value]) => {
-        if (!['limit', 'offset', 'blog_id', 'state__eq', 'tagId__eq'].includes(key) && typeof value === 'string') {
-            url.searchParams.set(key, value);
-        }
-    });
+    // Object.entries(query).forEach(([key, value]) => {
+    //     if (!['limit', 'offset', 'blog_id', 'state__eq', 'tagId__eq'].includes(key) && typeof value === 'string') {
+    //         url.searchParams.set(key, value);
+    //     }
+    // });
 
     try {
         const hubRes = await fetch(url.toString(), {
