@@ -24,10 +24,14 @@ exports.handler = async (event) => {
 
     const query = event.queryStringParameters || {};
     const blogId = query.blog_id || 'default';
-    const limit = Number(query.limit) || 10;
+    const limit = Number(query.limit) || 100;
     const offset = Number(query.offset) || 0;
 
-    const apiEndpoint = 'https://api.hubapi.com/cms/v3/blogs/posts';
+    let apiEndpoint = 'https://api.hubapi.com/cms/v3/blogs/posts';
+
+    if (blogId && blogId !== 'default' && !isNaN(Number(blogId))) {
+        apiEndpoint = `https://api.hubapi.com/cms/v3/blogs/blogs/${blogId}/posts`;
+    }
     const url = new URL(apiEndpoint);
 
     if (blogId && blogId !== 'default') {
@@ -38,7 +42,7 @@ exports.handler = async (event) => {
     url.searchParams.set('offset', offset.toString());
 
     Object.entries(query).forEach(([key, value]) => {
-        if (!['limit', 'offset', 'blog_id'].includes(key) && typeof value === 'string') {
+        if (!['limit', 'offset', 'blog_id', 'state__eq', 'tagId__eq'].includes(key) && typeof value === 'string') {
             url.searchParams.set(key, value);
         }
     });
