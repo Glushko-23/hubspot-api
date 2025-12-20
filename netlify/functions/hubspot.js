@@ -27,13 +27,12 @@ exports.handler = async (event) => {
     const limit = Number(query.limit) || 10;
     const offset = Number(query.offset) || 0;
 
-    let apiEndpoint = 'https://api.hubapi.com/cms/v3/blogs/posts';
-
-    if (blogId && blogId !== 'default' && !isNaN(Number(blogId))) {
-        apiEndpoint = `https://api.hubapi.com/cms/v3/blogs/blogs/${blogId}/posts`;
-    }
-
+    const apiEndpoint = 'https://api.hubapi.com/cms/v3/blogs/posts';
     const url = new URL(apiEndpoint);
+
+    if (blogId && blogId !== 'default') {
+        url.searchParams.set('blog_id', blogId);
+    }
 
     url.searchParams.set('limit', limit.toString());
     url.searchParams.set('offset', offset.toString());
