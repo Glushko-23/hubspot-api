@@ -34,9 +34,9 @@ exports.handler = async (event) => {
     }
     const url = new URL(apiEndpoint);
 
-    if (blogId && blogId !== 'default') {
-        url.searchParams.set('blog_id', blogId);
-    }
+    // if (blogId && blogId !== 'default') {
+    //     url.searchParams.set('blog_id', blogId);
+    // }
 
     url.searchParams.set('limit', limit.toString());
     url.searchParams.set('offset', offset.toString());
