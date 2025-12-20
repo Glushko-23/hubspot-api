@@ -23,15 +23,17 @@ exports.handler = async (event) => {
     }
 
     const query = event.queryStringParameters || {};
-    const blogId = query.blog_id;
+    const blogId = query.blog_id || 'default';
     const limit = Number(query.limit) || 10;
     const offset = Number(query.offset) || 0;
 
-    const url = new URL('https://api.hubapi.com/cms/v3/blogs/posts');
+    let apiEndpoint = 'https://api.hubapi.com/cms/v3/blogs/posts';
 
     if (blogId && blogId !== 'default' && !isNaN(Number(blogId))) {
-        url.searchParams.set('blog_id', blogId);
+        apiEndpoint = `https://api.hubapi.com/cms/v3/blogs/blogs/${blogId}/posts`;
     }
+
+    const url = new URL(apiEndpoint);
 
     url.searchParams.set('limit', limit.toString());
     url.searchParams.set('offset', offset.toString());
