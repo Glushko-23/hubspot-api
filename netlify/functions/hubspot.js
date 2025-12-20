@@ -91,6 +91,7 @@ exports.handler = async (event) => {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Cache-Control': 's-maxage=3600, stale-while-revalidate=60'
             },
             body: JSON.stringify({
                 ...data,
