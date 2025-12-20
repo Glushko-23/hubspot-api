@@ -1,0 +1,7 @@
+name = "hubspot-api-proxy"
+compatibility_date = "2025-12-20"
+main = "cloudflare/functions/api/hubspot.js"
+
+[site]
+
+assets = false
