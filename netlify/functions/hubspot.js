@@ -1,4 +1,18 @@
 exports.handler = async (event) => {
+    // Preflight support (OPTIONS) - the browser sends it before GET
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
+            },
+            body: '',
+        };
+    }
+
     if (event.httpMethod !== 'GET') {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
@@ -76,6 +90,8 @@ exports.handler = async (event) => {
             headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
                 'Cache-Control': 's-maxage=60, stale-while-revalidate=120',
             },
             body: JSON.stringify({
@@ -88,7 +104,12 @@ exports.handler = async (event) => {
 
         return {
             statusCode: 500,
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            },
             body: JSON.stringify({
                 error: 'HubSpot proxy error',
                 message: err instanceof Error ? err.message : String(err),
