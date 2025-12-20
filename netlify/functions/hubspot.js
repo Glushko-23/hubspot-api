@@ -5,7 +5,7 @@ exports.handler = async (event) => {
             statusCode: 200,
             headers: {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, Authorization',
                 'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
             },
@@ -13,8 +13,8 @@ exports.handler = async (event) => {
         };
     }
 
-    // Only allow GET requests
-    if (event.httpMethod !== 'GET') {
+    // Allow only POST (for Search API) and OPTIONS
+    if (event.httpMethod !== 'POST') {
         return {
             statusCode: 405,
             headers: { 'Access-Control-Allow-Origin': '*' },
@@ -33,46 +33,38 @@ exports.handler = async (event) => {
 
     const query = event.queryStringParameters || {};
     const blogId = query.blog_id || 'default';
-    const tagId = query.tagId__eq; // Tag ID for category filter
-    const limit = Number(query.limit) || 100;
-    const after = query.after; // For pagination
+
+    let body = {};
+    try {
+        body = JSON.parse(event.body);
+    } catch (e) {
+        return {
+            statusCode: 400,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify({ error: 'Invalid JSON body' }),
+        };
+    }
 
     // Build search request body for HubSpot Search API
     const searchBody = {
         objectTypes: ['BLOG_POST'],
-        filters: [],
-        sorts: [
+        filters: body.filters || [],
+        sorts: body.sorts || [
             {
                 propertyName: 'publish_date',
                 direction: 'DESCENDING',
             },
         ],
-        limit: limit,
-        after: after || undefined,
+        limit: body.limit || 100,
+        after: body.after || undefined,
     };
 
-    // Filter by blog ID (if specified and not default)
+    // Add blog ID filter if provided in query
     if (blogId && blogId !== 'default' && !isNaN(Number(blogId))) {
         searchBody.filters.push({
             propertyName: 'blog_id',
             operator: 'EQ',
             value: blogId,
-        });
-    }
-
-    // Filter by published state
-    searchBody.filters.push({
-        propertyName: 'state',
-        operator: 'EQ',
-        value: 'PUBLISHED',
-    });
-
-    // Filter by tag ID (category)
-    if (tagId) {
-        searchBody.filters.push({
-            propertyName: 'tag_ids',
-            operator: 'IN',
-            values: [tagId],
         });
     }
 
@@ -106,7 +98,7 @@ exports.handler = async (event) => {
             // Add other fields as needed (image, author, etc.)
         }));
 
-        // Enrich with tag names (optional, if you need tag names)
+        // Enrich with tag names
         const allTagIds = [...new Set(results.flatMap(post => post.tagIds || []))];
 
         let tagMap = {};
@@ -140,7 +132,7 @@ exports.handler = async (event) => {
             headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, Authorization',
                 'Cache-Control': 's-maxage=60, stale-while-revalidate=120',
             },
