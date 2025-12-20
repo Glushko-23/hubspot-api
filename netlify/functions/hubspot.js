@@ -1,24 +1,24 @@
 exports.handler = async (event) => {
-    // Handle preflight OPTIONS request for CORS
+    // CORS preflight
     if (event.httpMethod === 'OPTIONS') {
         return {
             statusCode: 200,
             headers: {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Max-Age': '86400',
             },
             body: '',
         };
     }
 
-    // Allow only POST (for Search API) and OPTIONS
+    // Only POST allowed for Search API
     if (event.httpMethod !== 'POST') {
         return {
             statusCode: 405,
             headers: { 'Access-Control-Allow-Origin': '*' },
-            body: 'Method Not Allowed',
+            body: 'Method Not Allowed — use POST',
         };
     }
 
@@ -27,40 +27,41 @@ exports.handler = async (event) => {
         return {
             statusCode: 500,
             headers: { 'Access-Control-Allow-Origin': '*' },
-            body: JSON.stringify({ error: 'No token set' }),
+            body: JSON.stringify({ error: 'No access token configured' }),
         };
     }
 
+    // Parse body safely
+    let requestBody = {};
+    if (event.body) {
+        try {
+            requestBody = JSON.parse(event.body);
+        } catch (e) {
+            return {
+                statusCode: 400,
+                headers: { 'Access-Control-Allow-Origin': '*' },
+                body: JSON.stringify({ error: 'Invalid JSON in request body' }),
+            };
+        }
+    }
+
+    // Get blog_id from query (for compatibility)
     const query = event.queryStringParameters || {};
     const blogId = query.blog_id || 'default';
 
-    let body = {};
-    try {
-        body = JSON.parse(event.body);
-    } catch (e) {
-        return {
-            statusCode: 400,
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            body: JSON.stringify({ error: 'Invalid JSON body' }),
-        };
-    }
-
-    // Build search request body for HubSpot Search API
+    // Build search body
     const searchBody = {
         objectTypes: ['BLOG_POST'],
-        filters: body.filters || [],
-        sorts: body.sorts || [
-            {
-                propertyName: 'publish_date',
-                direction: 'DESCENDING',
-            },
+        filters: requestBody.filters || [],
+        sorts: requestBody.sorts || [
+            { propertyName: 'publish_date', direction: 'DESCENDING' }
         ],
-        limit: body.limit || 100,
-        after: body.after || undefined,
+        limit: requestBody.limit || 100,
+        after: requestBody.after,
     };
 
-    // Add blog ID filter if provided in query
-    if (blogId && blogId !== 'default' && !isNaN(Number(blogId))) {
+    // Add blog filter
+    if (blogId && blogId !== 'default') {
         searchBody.filters.push({
             propertyName: 'blog_id',
             operator: 'EQ',
@@ -68,63 +69,40 @@ exports.handler = async (event) => {
         });
     }
 
-    const url = new URL('https://api.hubapi.com/crm/v3/objects/search');
+    // Always filter by PUBLISHED
+    searchBody.filters.push({
+        propertyName: 'state',
+        operator: 'EQ',
+        value: 'PUBLISHED',
+    });
 
     try {
-        const hubRes = await fetch(url.toString(), {
+        const response = await fetch('https://api.hubapi.com/crm/v3/objects/search', {
             method: 'POST',
             headers: {
-                Authorization: `Bearer ${token}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(searchBody),
         });
 
-        if (!hubRes.ok) {
-            const text = await hubRes.text();
-            throw new Error(`HubSpot Search API error ${hubRes.status}: ${text}`);
+        if (!response.ok) {
+            const text = await response.text();
+            console.error('HubSpot Search API error:', response.status, text);
+            throw new Error(`HubSpot error ${response.status}: ${text}`);
         }
 
-        const data = await hubRes.json();
+        const data = await response.json();
 
-        // Normalize results to match your existing format
+        // Normalize results (adapt to your util.normalizeApiResults)
         const results = data.results.map(post => ({
-            hs_path: post.properties.hs_path,
-            name: post.properties.name,
+            hs_path: post.properties.hs_path || '',
+            name: post.properties.name || 'Untitled',
             description: post.properties.post_summary || '',
+            image: { url: post.properties.featured_image || '' },
             publishDate: post.properties.publish_date,
-            state: post.properties.state,
             tagIds: post.properties.tag_ids ? post.properties.tag_ids.split(',') : [],
-            // Add other fields as needed (image, author, etc.)
-        }));
-
-        // Enrich with tag names
-        const allTagIds = [...new Set(results.flatMap(post => post.tagIds || []))];
-
-        let tagMap = {};
-        if (allTagIds.length > 0) {
-            const tagRes = await fetch('https://api.hubapi.com/cms/v3/blogs/tags?limit=500', {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    Accept: 'application/json',
-                },
-            });
-
-            if (!tagRes.ok) {
-                const text = await tagRes.text();
-                throw new Error(`HubSpot Tags API error ${tagRes.status}: ${text}`);
-            }
-
-            const tagData = await tagRes.json();
-            tagMap = tagData.results.reduce((acc, tag) => {
-                acc[tag.id] = tag.name;
-                return acc;
-            }, {});
-        }
-
-        const enrichedResults = results.map(post => ({
-            ...post,
-            tagNames: (post.tagIds || []).map(id => tagMap[id]).filter(Boolean),
+            state: post.properties.state,
         }));
 
         return {
@@ -132,14 +110,11 @@ exports.handler = async (event) => {
             headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                'Cache-Control': 's-maxage=60, stale-while-revalidate=120',
             },
             body: JSON.stringify({
-                results: enrichedResults,
+                results,
                 total: data.total,
-                paging: data.paging,
+                paging: data.paging || null,
             }),
         };
     } catch (err) {
@@ -152,8 +127,8 @@ exports.handler = async (event) => {
                 'Access-Control-Allow-Origin': '*',
             },
             body: JSON.stringify({
-                error: 'HubSpot proxy error',
-                message: err instanceof Error ? err.message : String(err),
+                error: 'Internal server error',
+                message: err.message,
             }),
         };
     }
