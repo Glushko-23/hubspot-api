@@ -1,6 +1,8 @@
 import fetch from 'node-fetch';
 
-export default async function handler(event) {
+export default async function handler(event, env = process.env) {
+    const environment = env || process.env;
+
     if (event.httpMethod === 'OPTIONS') {
         return {
             statusCode: 200,
@@ -18,7 +20,8 @@ export default async function handler(event) {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
-    const token = process.env.HUBSPOT_ACCESS_TOKEN;
+    const token = environment.HUBSPOT_ACCESS_TOKEN;
+
     if (!token) {
         return { statusCode: 500, body: JSON.stringify({ error: 'No token set' }) };
     }

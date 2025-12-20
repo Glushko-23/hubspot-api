@@ -10,7 +10,7 @@ export default {
             queryStringParameters,
         };
 
-        const result = await handler(fakeEvent);
+        const result = await handler(fakeEvent, env);
 
         const headers = new Headers(result.headers || {});
         return new Response(result.body, {
