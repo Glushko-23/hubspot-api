@@ -25,6 +25,7 @@ export default async function handler(event, env = process.env) {
     if (!token) {
         return { statusCode: 500, body: JSON.stringify({ error: 'No token set' }) };
     }
+    const DEFAULT_BLOG_ID = '102293518855';
 
     const query = event.queryStringParameters || {};
     const blogId = query.blog_id || 'default';
@@ -38,6 +39,10 @@ export default async function handler(event, env = process.env) {
 
     if (blogId && blogId !== 'default') {
         url.searchParams.set('contentGroupId', blogId);
+    }
+
+    if (blogId && blogId === 'default') {
+        url.searchParams.set('contentGroupId', DEFAULT_BLOG_ID);
     }
 
     Object.entries(query).forEach(([key, value]) => {
