@@ -107,7 +107,12 @@ export default async function handler(event, env = process.env) {
         console.error('Proxy error:', err);
         return {
             statusCode: 500,
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            },
             body: JSON.stringify({
                 error: 'HubSpot proxy error',
                 message: err.message,
