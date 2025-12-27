@@ -36,6 +36,7 @@ export default async function handler(event, env = process.env) {
 
     url.searchParams.set('limit', limit.toString());
     url.searchParams.set('offset', offset.toString());
+    url.searchParams.set('state__eq', 'PUBLISHED');
 
     if (blogId && blogId !== 'default') {
         url.searchParams.set('contentGroupId', blogId);
@@ -52,7 +53,7 @@ export default async function handler(event, env = process.env) {
     });
 
     try {
-        const hubRes = await fetch(url.toString(), {
+        let hubRes = await fetch(url.toString(), {
             headers: {
                 Authorization: `Bearer ${token}`,
                 Accept: 'application/json',
@@ -64,7 +65,15 @@ export default async function handler(event, env = process.env) {
             throw new Error(`HubSpot API error ${hubRes.status}: ${text}`);
         }
 
-        const data = await hubRes.json();
+        let data = await hubRes.json();
+
+        if ((!data.results || data.results.length === 0) && blogId === DEFAULT_BLOG_ID) {
+            url.searchParams.delete('contentGroupId');
+            hubRes = await fetch(url.toString(), {
+                headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+            });
+            data = await hubRes.json();
+        }
 
         const allTagIds = [...new Set(data.results.flatMap(post => post.tagIds || []))];
 
