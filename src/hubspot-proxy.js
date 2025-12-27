@@ -37,7 +37,7 @@ export default async function handler(event, env = process.env) {
     url.searchParams.set('offset', offset.toString());
 
     if (blogId && blogId !== 'default') {
-        url.searchParams.set('contentGroupId', blogId);
+        url.searchParams.set('contentGroupId__eq', blogId);
     }
 
     Object.entries(query).forEach(([key, value]) => {
