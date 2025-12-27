@@ -25,54 +25,24 @@ export default async function handler(event, env = process.env) {
     if (!token) {
         return { statusCode: 500, body: JSON.stringify({ error: 'No token set' }) };
     }
+    const DEFAULT_BLOG_ID = '102293518854';
 
     const query = event.queryStringParameters || {};
-    let blogId = query.blog_id || 'default';
+    const blogId = query.blog_id || 'default';
     const limit = Number(query.limit) || 100;
     const offset = Number(query.offset) || 0;
-
-    if (blogId === 'default') {
-        try {
-            const blogsRes = await fetch('https://api.hubapi.com/cms/v3/blogs?limit=100', {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    Accept: 'application/json',
-                },
-            });
-
-            if (!blogsRes.ok) {
-                const text = await blogsRes.text();
-                throw new Error(`HubSpot Blogs API error ${blogsRes.status}: ${text}`);
-            }
-
-            const blogsData = await blogsRes.json();
-
-            if (blogsData.results.length > 0) {
-                blogId = blogsData.results[0].id;
-                console.log('Resolved default blog ID to:', blogId);
-            } else {
-                throw new Error('No blogs found for this account');
-            }
-        } catch (err) {
-            console.error('Error fetching blogs list:', err);
-            return {
-                statusCode: 500,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    error: 'HubSpot proxy error',
-                    message: err.message,
-                }),
-            };
-        }
-    }
 
     const url = new URL('https://api.hubapi.com/cms/v3/blogs/posts');
 
     url.searchParams.set('limit', limit.toString());
     url.searchParams.set('offset', offset.toString());
 
-    if (blogId) {
+    if (blogId && blogId !== 'default') {
         url.searchParams.set('contentGroupId', blogId);
+    }
+
+    if (blogId && blogId === 'default') {
+        url.searchParams.set('contentGroupId', DEFAULT_BLOG_ID);
     }
 
     Object.entries(query).forEach(([key, value]) => {
