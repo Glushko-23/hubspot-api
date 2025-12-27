@@ -25,24 +25,43 @@ export default async function handler(event, env = process.env) {
     if (!token) {
         return { statusCode: 500, body: JSON.stringify({ error: 'No token set' }) };
     }
-    const DEFAULT_BLOG_ID = '102293518855';
 
     const query = event.queryStringParameters || {};
-    const blogId = query.blog_id || 'default';
+    let blogId = query.blog_id || 'default';
     const limit = Number(query.limit) || 100;
     const offset = Number(query.offset) || 0;
+
+    if (blogId === 'default') {
+        try {
+            const blogsRes = await fetch('https://api.hubapi.com/cms/v3/blogs?limit=100', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json',
+                },
+            });
+
+            if (!blogsRes.ok) {
+                const text = await blogsRes.text();
+                throw new Error(`HubSpot Blogs API error ${blogsRes.status}: ${text}`);
+            }
+
+            const blogsData = await blogsRes.json();
+            if (blogsData.results.length > 0) {
+                blogId = blogsData.results[0].id.toString();
+                console.log('Default blog ID resolved to:', blogId);
+            }
+        } catch (err) {
+            console.error('Error fetching blogs list:', err);
+        }
+    }
 
     const url = new URL('https://api.hubapi.com/cms/v3/blogs/posts');
 
     url.searchParams.set('limit', limit.toString());
     url.searchParams.set('offset', offset.toString());
 
-    if (blogId && blogId !== 'default') {
+    if (blogId) {
         url.searchParams.set('contentGroupId', blogId);
-    }
-
-    if (blogId && blogId === 'default') {
-        url.searchParams.set('contentGroupId', DEFAULT_BLOG_ID);
     }
 
     Object.entries(query).forEach(([key, value]) => {
