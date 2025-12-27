@@ -46,12 +46,23 @@ export default async function handler(event, env = process.env) {
             }
 
             const blogsData = await blogsRes.json();
+
             if (blogsData.results.length > 0) {
-                blogId = blogsData.results[0].id.toString();
-                console.log('Default blog ID resolved to:', blogId);
+                blogId = blogsData.results[0].id;
+                console.log('Resolved default blog ID to:', blogId);
+            } else {
+                throw new Error('No blogs found for this account');
             }
         } catch (err) {
             console.error('Error fetching blogs list:', err);
+            return {
+                statusCode: 500,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    error: 'HubSpot proxy error',
+                    message: err.message,
+                }),
+            };
         }
     }
 
