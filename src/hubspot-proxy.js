@@ -25,7 +25,7 @@ export default async function handler(event, env = process.env) {
     if (!token) {
         return { statusCode: 500, body: JSON.stringify({ error: 'No token set' }) };
     }
-    const DEFAULT_BLOG_ID = '102293518854';
+    // const DEFAULT_BLOG_ID = '102293518854';
 
     const query = event.queryStringParameters || {};
     const blogId = query.blog_id || 'default';
@@ -42,10 +42,6 @@ export default async function handler(event, env = process.env) {
         url.searchParams.set('contentGroupId', blogId);
     }
 
-    if (blogId && blogId === 'default') {
-        url.searchParams.set('contentGroupId', DEFAULT_BLOG_ID);
-    }
-
     Object.entries(query).forEach(([key, value]) => {
         if (!['limit', 'offset', 'blog_id'].includes(key) && typeof value === 'string') {
             url.searchParams.set(key, value);
@@ -53,7 +49,7 @@ export default async function handler(event, env = process.env) {
     });
 
     try {
-        let hubRes = await fetch(url.toString(), {
+        const hubRes = await fetch(url.toString(), {
             headers: {
                 Authorization: `Bearer ${token}`,
                 Accept: 'application/json',
@@ -65,15 +61,7 @@ export default async function handler(event, env = process.env) {
             throw new Error(`HubSpot API error ${hubRes.status}: ${text}`);
         }
 
-        let data = await hubRes.json();
-
-        if ((!data.results || data.results.length === 0) && blogId === DEFAULT_BLOG_ID) {
-            url.searchParams.delete('contentGroupId');
-            hubRes = await fetch(url.toString(), {
-                headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-            });
-            data = await hubRes.json();
-        }
+        const data = await hubRes.json();
 
         const allTagIds = [...new Set(data.results.flatMap(post => post.tagIds || []))];
 
